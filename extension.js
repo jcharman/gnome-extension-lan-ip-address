@@ -10,9 +10,8 @@ const GLib = imports.gi.GLib;
 const GObject = imports.gi.GObject;
 
 function _get_lan_ip() {
-    // Ask the IP stack what route would be used to reach 1.1.1.1 (Cloudflare DNS)
-    // Specifically, what src would be used for the 1st hop?
-    var command_output_bytes = GLib.spawn_command_line_sync('ip route get 1.1.1.1')[1];
+    // Check the address of the tun0 interface.
+    var command_output_bytes = GLib.spawn_command_line_sync('ip -f inet addr show tun0')[1];
     var command_output_string = '';
 
     for (var current_character_index = 0;
@@ -23,15 +22,15 @@ function _get_lan_ip() {
         command_output_string += current_character;
     }
 
-    // Output of the "ip route" command will be a string
-    // " ... src 1.2.3.4 ..."
+    // Output of the "ip" command will be a string
+    // " ... inet 1.2.3.4 ..."
     // So basically we want the next token (word) immediately after the "src"
-    // word, and nothing else. This is considerd our LAN IP address.
-    var Re = new RegExp(/src [^ ]+/g);
+    // word, and nothing else. This is considerd our VPN IP address.
+    var Re = new RegExp(/(?<=inet\s)(?:[0-9]{1,3}\.){3}[0-9]{1,3}/g);
     var matches = command_output_string.match(Re);
     var lanIpAddress;
     if (matches) {
-        lanIpAddress = matches[0].split(' ')[1];
+        lanIpAddress = matches[0];
     } else {
         lanIpAddress = '';
     }
@@ -40,7 +39,7 @@ function _get_lan_ip() {
 }
 
 // Our PanelMenu.Button subclass
-var LanIPAddressIndicator = class LanIPAddressIndicator extends PanelMenu.Button {
+var VpnIPAddressIndicator = class VpnIPAddressIndicator extends PanelMenu.Button {
 
     _init() {
         // Chaining up to the super-class
@@ -79,16 +78,16 @@ var LanIPAddressIndicator = class LanIPAddressIndicator extends PanelMenu.Button
 // In gnome-shell >= 3.32 this class and several others became GObject
 // subclasses. We can account for this change simply by re-wrapping our
 // subclass in `GObject.registerClass()`
-LanIPAddressIndicator = GObject.registerClass(
-    {GTypeName: 'LanIPAddressIndicator'},
-    LanIPAddressIndicator
+VpnIPAddressIndicator = GObject.registerClass(
+    {GTypeName: 'VpnIPAddressIndicator'},
+    VpnIPAddressIndicator
 );
 
 let _indicator;
 
 function enable() {
-    _indicator = new LanIPAddressIndicator();
-    Main.panel.addToStatusArea('lan-ip-address-indicator', _indicator);
+    _indicator = new VpnIPAddressIndicator();
+    Main.panel.addToStatusArea('vpn-ip-address-indicator', _indicator);
 }
 
 function disable() {
